@@ -46,6 +46,11 @@ namespace ReactiveDemo
                     .DisposeWith(disposableRegistration);
 
                 this.OneWayBind(ViewModel,
+                    viewModel => viewModel.IsAvailable,
+                    view => view.BusySignal.Visibility)
+                    .DisposeWith(disposableRegistration);
+
+                this.OneWayBind(ViewModel,
                     viewModel => viewModel.SearchResults,
                     view => view.searchResultsListBox.ItemsSource)
                     .DisposeWith(disposableRegistration);
