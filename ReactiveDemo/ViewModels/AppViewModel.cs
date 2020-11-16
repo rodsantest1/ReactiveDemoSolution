@@ -11,16 +11,22 @@ using System.Threading.Tasks;
 
 namespace ReactiveDemo
 {
+    #region docs
     // AppViewModel is where we will describe the interaction of our application.
     // We can describe the entire application in one class since it's very small now. 
     // Most ViewModels will derive off ReactiveObject, while most Model classes will 
     // most derive off INotifyPropertyChanged
+    #endregion docs
+
     public class AppViewModel : ReactiveObject
     {
+        #region docs
         // In ReactiveUI, this is the syntax to declare a read-write property
         // that will notify Observers, as well as WPF, that a property has 
         // changed. If we declared this as a normal property, we couldn't tell 
         // when it has changed!
+        #endregion docs
+
         private string _searchTerm;
         public string SearchTerm
         {
@@ -28,6 +34,7 @@ namespace ReactiveDemo
             set => this.RaiseAndSetIfChanged(ref _searchTerm, value);
         }
 
+        #region docs
         // Here's the interesting part: In ReactiveUI, we can take IObservables
         // and "pipe" them to a Property - whenever the Observable yields a new
         // value, we will notify ReactiveObject that the property has changed.
@@ -36,19 +43,25 @@ namespace ReactiveDemo
         // class subscribes to an Observable and stores a copy of the latest value.
         // It also runs an action whenever the property changes, usually calling
         // ReactiveObject's RaisePropertyChanged.
+        #endregion docs
+
         private readonly ObservableAsPropertyHelper<IEnumerable<NugetDetailsViewModel>> _searchResults;
         public IEnumerable<NugetDetailsViewModel> SearchResults => _searchResults.Value;
 
+        #region docs
         // Here, we want to create a property to represent when the application 
         // is performing a search (i.e. when to show the "spinner" control that 
         // lets the user know that the app is busy). We also declare this property
         // to be the result of an Observable (i.e. its value is derived from 
         // some other property)
+        #endregion docs
+
         private readonly ObservableAsPropertyHelper<bool> _isAvailable;
         public bool IsAvailable => _isAvailable.Value;
 
         public AppViewModel()
         {
+            #region docs
             // Creating our UI declaratively
             // 
             // The Properties in this ViewModel are related to each other in different 
@@ -77,6 +90,7 @@ namespace ReactiveDemo
             //
             // We then use a ObservableAsPropertyHelper and the ToProperty() method to allow
             // us to have the latest results that we can expose through the property to the View.
+            #endregion docs
             _searchResults = this
                 .WhenAnyValue(x => x.SearchTerm)
                 .Throttle(TimeSpan.FromMilliseconds(800))
@@ -87,22 +101,28 @@ namespace ReactiveDemo
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .ToProperty(this, x => x.SearchResults);
 
+            #region docs
             // We subscribe to the "ThrownExceptions" property of our OAPH, where ReactiveUI 
             // marshals any exceptions that are thrown in SearchNuGetPackages method. 
             // See the "Error Handling" section for more information about this.
+            #endregion docs
             _searchResults.ThrownExceptions.Subscribe(error => { /* Handle errors here */ });
 
+            #region docs
             // A helper method we can use for Visibility or Spinners to show if results are available.
             // We get the latest value of the SearchResults and make sure it's not null.
+            #endregion docs
             _isAvailable = this
                 .WhenAnyValue(x => x.SearchResults)
                 .Select(searchResults => searchResults != null)
                 .ToProperty(this, x => x.IsAvailable);
         }
 
+        #region docs
         // Here we search NuGet packages using the NuGet.Client library. Ideally, we should
         // extract such code into a separate service, say, INuGetSearchService, but let's 
         // try to avoid overcomplicating things at this time.
+        #endregion docs
         private async Task<IEnumerable<NugetDetailsViewModel>> SearchNuGetPackages(
             string term, CancellationToken token)
         {
