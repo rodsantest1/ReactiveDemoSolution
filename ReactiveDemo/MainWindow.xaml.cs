@@ -47,7 +47,8 @@ namespace ReactiveDemo
 
                 this.OneWayBind(ViewModel,
                     viewModel => viewModel.IsAvailable,
-                    view => view.BusySignal.Visibility)
+                    view => view.BusyLabel.Visibility,
+                    BooleanToVisibilityHint.Inverse)
                     .DisposeWith(disposableRegistration);
 
                 this.OneWayBind(ViewModel,
