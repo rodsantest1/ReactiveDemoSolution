@@ -1,11 +1,17 @@
-﻿using NuGet.Configuration;
+﻿
+
+using DynamicData;
+using NuGet.Configuration;
 using NuGet.Protocol.Core.Types;
 using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,8 +21,14 @@ namespace ReactiveDemo
     // We can describe the entire application in one class since it's very small now. 
     // Most ViewModels will derive off ReactiveObject, while most Model classes will 
     // most derive off INotifyPropertyChanged
-    public class AppViewModel : ReactiveObject
+    public class AppViewModel : ReactiveObject, IActivatableViewModel
     {
+        private readonly SourceList<NugetDetailsViewModel> _searchResultsSource = new SourceList<NugetDetailsViewModel>();
+        private ReadOnlyObservableCollection<NugetDetailsViewModel> _searchResults;
+        public ReadOnlyObservableCollection<NugetDetailsViewModel> SearchResults => _searchResults;
+
+        public ReactiveCommand<string, Unit> SearchCommand { get; }
+
         // In ReactiveUI, this is the syntax to declare a read-write property
         // that will notify Observers, as well as WPF, that a property has 
         // changed. If we declared this as a normal property, we couldn't tell 
@@ -36,19 +48,25 @@ namespace ReactiveDemo
         // class subscribes to an Observable and stores a copy of the latest value.
         // It also runs an action whenever the property changes, usually calling
         // ReactiveObject's RaisePropertyChanged.
-        private readonly ObservableAsPropertyHelper<IEnumerable<NugetDetailsViewModel>> _searchResults;
-        public IEnumerable<NugetDetailsViewModel> SearchResults => _searchResults.Value;
+
+        //public IEnumerable<NugetDetailsViewModel> SearchResults { [ObservableAsProperty] get; }
 
         // Here, we want to create a property to represent when the application 
         // is performing a search (i.e. when to show the "spinner" control that 
         // lets the user know that the app is busy). We also declare this property
         // to be the result of an Observable (i.e. its value is derived from 
         // some other property)
-        private readonly ObservableAsPropertyHelper<bool> _isAvailable;
-        public bool IsAvailable => _isAvailable.Value;
+        public bool IsBusy { [ObservableAsProperty] get; }
+
+        public ViewModelActivator Activator { get; }
 
         public AppViewModel()
         {
+            Activator = new ViewModelActivator();
+
+            SearchCommand = ReactiveCommand.CreateFromObservable<string, Unit>(this.SearchNuGetPackages);
+
+
             // Creating our UI declaratively
             // 
             // The Properties in this ViewModel are related to each other in different 
@@ -77,44 +95,74 @@ namespace ReactiveDemo
             //
             // We then use a ObservableAsPropertyHelper and the ToProperty() method to allow
             // us to have the latest results that we can expose through the property to the View.
-            _searchResults = this
-                .WhenAnyValue(x => x.SearchTerm)
-                .Throttle(TimeSpan.FromMilliseconds(800))
-                .Select(term => term?.Trim())
-                .DistinctUntilChanged()
-                .Where(term => !string.IsNullOrWhiteSpace(term))
-                .SelectMany(SearchNuGetPackages)
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .ToProperty(this, x => x.SearchResults);
+
 
             // We subscribe to the "ThrownExceptions" property of our OAPH, where ReactiveUI 
             // marshals any exceptions that are thrown in SearchNuGetPackages method. 
             // See the "Error Handling" section for more information about this.
-            _searchResults.ThrownExceptions.Subscribe(error => { /* Handle errors here */ });
+
+            //_searchResults.ThrownExceptions.Subscribe(error => { /* Handle errors here */ });
 
             // A helper method we can use for Visibility or Spinners to show if results are available.
             // We get the latest value of the SearchResults and make sure it's not null.
-            _isAvailable = this
-                .WhenAnyValue(x => x.SearchResults)
-                .Select(searchResults => searchResults != null)
-                .ToProperty(this, x => x.IsAvailable);
-        }
 
+            this.WhenActivated(disposables =>
+            {
+                _searchResultsSource
+                    .Connect()
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .Bind(out _searchResults)
+                    .DisposeMany()
+                    .Subscribe()
+                    .DisposeWith(disposables);
+
+                this.WhenAnyValue(x => x.SearchTerm)
+                    .Throttle(TimeSpan.FromMilliseconds(800))
+                    .Select(term => term?.Trim())
+                    .DistinctUntilChanged()
+                    .Where(term => !string.IsNullOrWhiteSpace(term))
+                    //.SelectMany(SearchNuGetPackages)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .InvokeCommand(SearchCommand)
+                    //.ToPropertyEx(this, x => x.SearchResults)
+                    .DisposeWith(disposables);
+
+                this.WhenAnyObservable(x => x.SearchCommand.IsExecuting)
+                    .ObserveOn(RxApp.MainThreadScheduler)
+                    .ToPropertyEx(this, x => x.IsBusy)
+                    .DisposeWith(disposables);
+
+                //    this.WhenAnyValue(x => x.SearchResults)
+                //       .Select(searchResults => searchResults != null)
+                //       .ToPropertyEx(this, x => x.IsAvailable)
+                //       .DisposeWith(disposables);
+            });
+        }
         // Here we search NuGet packages using the NuGet.Client library. Ideally, we should
         // extract such code into a separate service, say, INuGetSearchService, but let's 
         // try to avoid overcomplicating things at this time.
-        private async Task<IEnumerable<NugetDetailsViewModel>> SearchNuGetPackages(
-            string term, CancellationToken token)
+        private IObservable<Unit> SearchNuGetPackages(
+            string term)
         {
-            var providers = new List<Lazy<INuGetResourceProvider>>();
-            providers.AddRange(Repository.Provider.GetCoreV3()); // Add v3 API support
-            var packageSource = new PackageSource("https://api.nuget.org/v3/index.json");
-            var source = new SourceRepository(packageSource, providers);
+            return Observable.StartAsync(async () =>
+            {
+                var providers = new List<Lazy<INuGetResourceProvider>>();
+                providers.AddRange(Repository.Provider.GetCoreV3()); // Add v3 API support
+                var packageSource = new PackageSource("https://api.nuget.org/v3/index.json");
+                var source = new SourceRepository(packageSource, providers);
 
-            var filter = new SearchFilter(false);
-            var resource = await source.GetResourceAsync<PackageSearchResource>().ConfigureAwait(false);
-            var metadata = await resource.SearchAsync(term, filter, 0, 10, null, token).ConfigureAwait(false);
-            return metadata.Select(x => new NugetDetailsViewModel(x));
+                var filter = new SearchFilter(false);
+                var resource = await source.GetResourceAsync<PackageSearchResource>().ConfigureAwait(false);
+                var metadata = await resource.SearchAsync(term, filter, 0, 10, null, default).ConfigureAwait(false);
+                var nugetDetails = metadata.Select(x => new NugetDetailsViewModel(x));
+
+                _searchResultsSource.Edit(innerList =>
+                {
+                    innerList.Clear();
+                    innerList.AddRange(nugetDetails);
+                });
+
+            }, RxApp.MainThreadScheduler);
         }
     }
 }

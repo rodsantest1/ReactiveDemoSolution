@@ -41,14 +41,13 @@ namespace ReactiveDemo
                 // Notice we don't have to provide a converter, on WPF a global converter is
                 // registered which knows how to convert a boolean into visibility.
                 this.OneWayBind(ViewModel,
-                    viewModel => viewModel.IsAvailable,
+                    viewModel => viewModel.IsBusy,
                     view => view.searchResultsListBox.Visibility)
                     .DisposeWith(disposableRegistration);
 
                 this.OneWayBind(ViewModel,
-                    viewModel => viewModel.IsAvailable,
-                    view => view.BusyLabel.Visibility,
-                    BooleanToVisibilityHint.Inverse)
+                    viewModel => viewModel.IsBusy,
+                    view => view.BusyLabel.Visibility)
                     .DisposeWith(disposableRegistration);
 
                 this.OneWayBind(ViewModel,
