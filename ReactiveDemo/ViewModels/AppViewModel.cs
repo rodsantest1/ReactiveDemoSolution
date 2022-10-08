@@ -8,6 +8,7 @@ using NuGet.Configuration;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 
 namespace ReactiveDemo
 {
@@ -49,6 +50,8 @@ namespace ReactiveDemo
         private readonly ObservableAsPropertyHelper<bool> _isAvailable;
 
         public bool IsAvailable => _isAvailable.Value;
+
+        [Reactive] public bool IsBusy { get; set; } = true;
 
         public AppViewModel()
         {
