@@ -13,6 +13,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -21,8 +22,9 @@
         <TextBlock FontSize="16" FontWeight="SemiBold" 
                    VerticalAlignment="Center" Text="Search for: "/>
         <TextBox Grid.Column="1" Margin="6 0 0 0" x:Name="searchTextBox" />
+        <TextBlock x:Name="busyLabel" Text="Loading..." Grid.Column="2" Foreground="Red" Visibility="Hidden" />
         <ListBox x:Name="searchResultsListBox" Grid.ColumnSpan="3" 
-                 Grid.Row="1" Margin="0,6,0,0" HorizontalContentAlignment="Stretch"
+            Grid.Row="1" Margin="0,6,0,0" HorizontalContentAlignment="Stretch"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
     </Grid>
 </reactiveui:ReactiveWindow>
