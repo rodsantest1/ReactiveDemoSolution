@@ -109,6 +109,7 @@ namespace ReactiveDemo
         private async Task<IEnumerable<NugetDetailsViewModel>> SearchNuGetPackages(
             string term, CancellationToken token)
         {
+            await Task.Delay(4000);
             var providers = new List<Lazy<INuGetResourceProvider>>();
             providers.AddRange(Repository.Provider.GetCoreV3()); // Add v3 API support
             var package = new PackageSource("https://api.nuget.org/v3/index.json");
